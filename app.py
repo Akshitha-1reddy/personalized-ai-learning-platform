@@ -1,9 +1,10 @@
-# 📚 Personalized Learning Platform (FINAL VERSION)
+# 📚 Personalized Learning Platform (FINAL VERSION WITH ADVANCED QUIZ)
 
 import streamlit as st
 import wikipedia
 from gtts import gTTS
 import time
+import random
 
 # -------------------------------
 # 🎨 UI Styling
@@ -36,7 +37,7 @@ h1 {
 st.markdown("<h1>🎓 Personalized Learning Platform</h1>", unsafe_allow_html=True)
 
 # -------------------------------
-# 🔍 GET SUGGESTIONS
+# 🔍 Suggestions
 # -------------------------------
 @st.cache_data
 def get_suggestions(query):
@@ -46,7 +47,7 @@ def get_suggestions(query):
         return []
 
 # -------------------------------
-# 🧠 GET NOTES (SMART)
+# 🧠 Notes
 # -------------------------------
 @st.cache_data
 def get_notes(topic):
@@ -63,7 +64,7 @@ def get_notes(topic):
             return "Could not fetch information."
 
 # -------------------------------
-# 🖼️ GET IMAGES
+# 🖼️ Images
 # -------------------------------
 @st.cache_data
 def get_images(topic):
@@ -71,12 +72,12 @@ def get_images(topic):
         page = wikipedia.page(topic, auto_suggest=False)
         images = page.images
         valid = [img for img in images if img.endswith((".jpg", ".png"))]
-        return valid[:2]   # reduced for speed
+        return valid[:2]
     except:
         return []
 
 # -------------------------------
-# 🎤 VOICE
+# 🎤 Voice
 # -------------------------------
 def speak(text):
     filename = f"voice_{int(time.time())}.mp3"
@@ -86,13 +87,42 @@ def speak(text):
         st.audio(f.read(), format="audio/mp3")
 
 # -------------------------------
-# 💾 SESSION STATE
+# 🧠 Advanced Quiz Generator
+# -------------------------------
+def generate_advanced_quiz(text):
+    sentences = text.split(". ")
+    quiz = []
+
+    for sentence in sentences[:3]:
+        words = sentence.split()
+        if len(words) < 6:
+            continue
+
+        answer = words[0]
+        question = sentence.replace(answer, "______", 1)
+
+        options = [answer]
+        dummy = ["System", "Process", "Energy", "Structure"]
+        options.extend(random.sample(dummy, 2))
+        random.shuffle(options)
+
+        correct_index = options.index(answer)
+
+        quiz.append((question, options, correct_index))
+
+    return quiz
+
+# -------------------------------
+# 💾 Session State
 # -------------------------------
 if "notes" not in st.session_state:
     st.session_state.notes = ""
 
+if "quiz" not in st.session_state:
+    st.session_state.quiz = []
+
 # -------------------------------
-# 📥 INPUT + SUGGESTIONS
+# 📥 Input
 # -------------------------------
 query = st.text_input("📘 Enter a Topic")
 
@@ -100,14 +130,13 @@ selected_topic = ""
 
 if query:
     suggestions = get_suggestions(query)
-
     if suggestions:
         selected_topic = st.selectbox("🔎 Select Topic:", suggestions)
     else:
         st.warning("No suggestions found")
 
 # -------------------------------
-# 📚 TEACH BUTTON
+# 📚 Teach
 # -------------------------------
 if st.button("📚 Teach Me"):
     if selected_topic == "":
@@ -116,7 +145,7 @@ if st.button("📚 Teach Me"):
         st.session_state.notes = get_notes(selected_topic)
 
 # -------------------------------
-# 📘 DISPLAY
+# 📘 Display
 # -------------------------------
 if st.session_state.notes:
     st.markdown('<div class="card">', unsafe_allow_html=True)
@@ -127,7 +156,7 @@ if st.session_state.notes:
     if st.button("🔊 Listen Explanation"):
         speak(st.session_state.notes)
 
-    # 🖼️ Images
+    # Images
     with st.spinner("Loading images..."):
         images = get_images(selected_topic)
 
@@ -139,8 +168,33 @@ if st.session_state.notes:
     else:
         st.info("No images found.")
 
+    # -------------------------------
+    # 🧠 ADVANCED QUIZ
+    # -------------------------------
+    if st.button("🧠 Generate Quiz"):
+        st.session_state.quiz = generate_advanced_quiz(st.session_state.notes)
+        st.session_state.start_time = time.time()
+
+    if st.session_state.quiz:
+        st.subheader("🧠 Quiz Time")
+
+        score = 0
+
+        for i, (question, options, correct) in enumerate(st.session_state.quiz):
+            answer = st.radio(f"Q{i+1}: {question}", options, key=f"quiz_{i}")
+
+            if answer == options[correct]:
+                score += 1
+
+        if st.button("Submit Quiz"):
+            end_time = time.time()
+            total_time = int(end_time - st.session_state.start_time)
+
+            st.success(f"Score: {score}/{len(st.session_state.quiz)}")
+            st.info(f"Time Taken: {total_time} seconds")
+
 # -------------------------------
-# ❓ DOUBT SECTION
+# ❓ Doubt Section
 # -------------------------------
 st.subheader("❓ Ask Your Doubt")
 
@@ -172,7 +226,7 @@ if "answer" in st.session_state and st.session_state.answer:
         speak(st.session_state.answer)
 
 # -------------------------------
-# 🎉 FOOTER
+# 🎉 Footer
 # -------------------------------
 st.markdown("""
 <hr>
